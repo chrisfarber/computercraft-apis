@@ -101,7 +101,7 @@ function run(firstResponder)
   while true do
     -- first check for responders that can run, prune finished
     local prunedResponders = {}
-    for _, responder in responders do
+    for _, responder in ipairs(responders) do
       if responder:shouldResume() then
         responder()
       end
