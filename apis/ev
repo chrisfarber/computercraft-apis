@@ -94,9 +94,23 @@ OSEvents.on("redstone", wiring.eventHandler)
 -- Runloop
 --
 
+local function runCoroutines(routines)
+  local livingRoutines = {}
+  for _, thread in ipairs(routines) do
+    if coroutine.status(thread) == "suspended" then
+      coroutine.resume(thread)
+      if coroutine.status(thread) == "suspended" then
+        table.insert(livingRoutines, thread)
+      end
+    end
+  end
+  return livingRoutines
+end
+
 run = function(func)
+  local threads = {}
   if func then
-    func()
+    table.insert(threads, coroutine.create(func))
   end
   while true do
     local eventName, p1, p2, p3 = os.pullEventRaw()

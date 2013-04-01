@@ -114,9 +114,11 @@ function run(firstResponder)
     local eventName, p1, p2, p3 = os.pullEventRaw()
     -- new responder instances will be created for new events...
     local unfinishedResponders = osEvents:send(eventName, p1, p2, p3)
-    if not unfinishedResponders and eventName == "terminate" then
-      print("Shutting down")
-      break
+    if not unfinishedResponders then
+      if eventName == "terminate" then
+        print("Shutting down")
+        break
+      end
     else
       for _, responder in ipairs(unfinishedResponders) do
         table.insert(responders, responder)
