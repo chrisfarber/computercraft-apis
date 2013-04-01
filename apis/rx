@@ -1,0 +1,126 @@
+-- Responder (wraps functions in coroutines)
+--
+
+Responder = {}
+Responder.__index = Responder
+
+function Responder:new(functionToWrap)
+  assert(self, "missing class")
+  local f = setmetatable({}, self)
+  f.func = functionToWrap
+  f.co = coroutine.create(f.func)
+  return f
+end
+
+function Responder:__call(...)
+  if not self:finished() then
+    local _, check = coroutine.resume(self.co, ...)
+    self.check = check
+    return true
+  else
+    return false
+  end
+end
+
+function Responder:finished()
+  return coroutine.status(self.co) == "dead"
+end
+
+function Responder:shouldResume()
+  if not self:finished() then
+    if self.check then
+      return self:check()
+    else
+      return true
+    end
+  end
+  return false
+end
+
+-- EventTable class
+--
+
+EventTable = {}
+EventTable.__index = EventTable
+
+function EventTable:on(name, responder)
+  local responders = self[name] or {}
+  table.insert(responders, responder)
+  self[name] = responders
+end
+
+function EventTable:off(name, responder)
+  local responders = self[name]
+  if responder and responders then
+    local newResponders = {}
+    for i=1,#responders do
+      if responders[i] ~= responder then
+        table.insert(newResponders, responders[i])
+      end
+    end
+    self[name] = newResponders
+  else
+    self[name] = {}
+  end
+end
+
+function EventTable:send(name, ...)
+  local responders = self[name] or {}
+  local unfinished = {}
+  local sent = false
+  for i, responder in ipairs(responders) do
+    local f = Responder:new(responder)
+    f(...)
+    if not f:finished() then
+      table.insert(unfinished, f)
+    end
+    sent = true
+  end
+  if sent then
+    return unfinished
+  else
+    return sent
+  end
+end
+
+function EventTable:new()
+  assert(self, "missing class")
+  return setmetatable({}, self)
+end
+
+osEvents = EventTable:new()
+
+-- Running
+--
+
+function run(firstResponder)
+  local responders = {}
+  if firstResponder then
+    table.insert(responders, Responder:new(firstResponder))
+  end
+  while true do
+    -- first check for responders that can run, prune finished
+    local prunedResponders = {}
+    for _, responder in responders do
+      if responder:shouldResume() then
+        responder()
+      end
+      if not responder:finished() then
+        table.insert(prunedResponders, responder)
+      end
+    end
+    responders = prunedResponders
+    -- then wait for events
+    local eventName, p1, p2, p3 = os.pullEventRaw()
+    -- new responder instances will be created for new events...
+    local unfinishedResponders = osEvents:send(eventName, p1, p2, p3)
+    if not unfinishedResponders and eventName == "terminate" then
+      print("Shutting down")
+      break
+    else
+      for _, responder in ipairs(unfinishedResponders) do
+        table.insert(responders, responder)
+      end
+    end
+  end
+end
