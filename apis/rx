@@ -105,11 +105,11 @@ end
 local osEvents = EventTable:new()
 
 function on(...)
-  return osEvents.on(...)
+  return osEvents:on(...)
 end
 
 function off(...)
-  return osEvents.off(...)
+  return osEvents:off(...)
 end
 
 -- convenience
