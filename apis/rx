@@ -153,10 +153,11 @@ function run(mainFunction)
 
   while true do
     -- wait for events
-    local eventName, p1, p2, p3 = os.pullEventRaw()
+    local event = {os.pullEventRaw()}
+    local eventName = event[1]
 
     -- dispatch the event
-    local handled = osEvents:dispatch(eventName, p1, p2, p3)
+    local handled = osEvents:dispatch(unpack(event))
 
     -- abort the loop if terminate is unhandled
     if not handled then
