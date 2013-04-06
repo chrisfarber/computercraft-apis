@@ -101,6 +101,7 @@ function EventTable:new()
 end
 
 -- create the event table for handling OS events
+--
 
 local osEvents = EventTable:new()
 
@@ -113,9 +114,30 @@ function off(...)
 end
 
 -- convenience
+--
 
-function wait(checkFunc)
+function waitUntil(checkFunc)
   coroutine.yield(checkFunc)
+end
+
+-- Timers
+--
+
+local timers = {}
+
+on("timer", function(timerID)
+  timers[timerID] = true
+end)
+
+function wait(seconds)
+  local timerID = os.startTimer(seconds)
+  waitUntil(function()
+    local ready = timers[timerID]
+    if ready then
+      timers[timerID] = nil
+    end
+    return ready
+  end)
 end
 
 -- Running
@@ -133,9 +155,6 @@ function run(mainFunction)
     -- wait for events
     local eventName, p1, p2, p3 = os.pullEventRaw()
 
-    -- first, resume any running handlers
-    osEvents:resume()
-
     -- dispatch the event
     local handled = osEvents:dispatch(eventName, p1, p2, p3)
 
@@ -146,5 +165,8 @@ function run(mainFunction)
         break
       end
     end
+
+    -- resume any running handlers
+    osEvents:resume()
   end
 end
