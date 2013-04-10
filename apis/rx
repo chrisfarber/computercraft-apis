@@ -43,9 +43,24 @@ end
 EventTable = {}
 EventTable.__index = EventTable
 
-function EventTable:on(name, responder)
+function EventTable:on(optsOrName, f)
+  local name
+  local opts = {}
+  if type(optsOrName) == "table" then
+    opts = optsOrName
+    name = opts.event
+  else
+    name = optsOrName
+  end
+  assert(type(name) == "string" and name ~= "", "an event name must be supplied")
+
+  if f then
+    opts.f = f
+  end
+  assert(type(opts.f) == "function", "a handler must be supplied")
+
   local responders = self[name] or {}
-  table.insert(responders, responder)
+  table.insert(responders, opts)
   self[name] = responders
 end
 
@@ -54,7 +69,7 @@ function EventTable:off(name, responder)
   if responder and responders then
     local newResponders = {}
     for i=1,#responders do
-      if responders[i] ~= responder then
+      if responders[i].f ~= responder then
         table.insert(newResponders, responders[i])
       end
     end
@@ -66,15 +81,25 @@ end
 
 function EventTable:dispatch(name, ...)
   local responders = self[name] or {}
+  local preservedResponders = {}
   local sent = false
   for i, responder in ipairs(responders) do
-    local f = Responder:new(responder)
+    if type(responder.filter) == "function" and not responder.filter(...) then
+      table.insert(preservedResponders, responder)
+      break
+    end
+
+    local f = Responder:new(responder.f)
     f(...)
     if not f:finished() then
       self:addResponder(f)
     end
     sent = true
+    if not responder.once then
+      table.insert(preservedResponders, responder)
+    end
   end
+  self[name] = preservedResponders
   return sent
 end
 
@@ -113,6 +138,11 @@ function off(...)
   return osEvents:off(...)
 end
 
+function add(func)
+  local responder = Responder:new(func)
+  osEvents:addResponder(responder)
+end
+
 -- convenience
 --
 
@@ -146,8 +176,7 @@ end
 function run(mainFunction)
   -- run the main function, if supplied
   if mainFunction then
-    local responder = Responder:new(mainFunction)
-    osEvents:addResponder(responder)
+    add(mainFunction)
     osEvents:resume()
   end
 
