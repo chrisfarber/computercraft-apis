@@ -153,21 +153,22 @@ end
 -- Timers
 --
 
-local timers = {}
-
-on("timer", function(timerID)
-  timers[timerID] = true
-end)
-
 function wait(seconds)
-  local timerID = os.startTimer(seconds)
-  waitUntil(function()
-    local ready = timers[timerID]
-    if ready then
-      timers[timerID] = nil
+  local ourID = os.startTimer(seconds)
+  local fired = false
+
+  on {
+    event = "timer",
+    filter = function(timerID)
+      return timerID == ourID
+    end,
+    once = true,
+    f = function()
+      fired = true
     end
-    return ready
-  end)
+  }
+
+  waitUntil(function() return fired end)
 end
 
 -- Running
