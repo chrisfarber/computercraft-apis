@@ -143,6 +143,10 @@ function add(func)
   osEvents:addResponder(responder)
 end
 
+function queue(...)
+  os.queueEvent(...)
+end
+
 -- convenience
 --
 
